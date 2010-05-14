@@ -1,0 +1,22 @@
+/* This is the minefield container */
+.jQueryMinefield.default .minefield {
+	float:left;
+	border:10px solid blue;
+}
+
+/* This is a mine/block in the minefield */
+.jQueryMinefield.default .minefield DIV {
+	width: 23px;
+	height: 23px;
+	padding:1px;
+	border: 1px solid black;
+	background: blue;
+	float:left;
+	font-size:12px;
+}
+.jQueryMinefield.default .minefield DIV.first {
+	clear:left;
+}
+.jQueryMinefield.default .minefield DIV.mine {
+	background:red;
+}
