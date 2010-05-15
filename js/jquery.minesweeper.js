@@ -21,14 +21,14 @@
 					self = $(this),
 					minefield = null, 
 					heading = null,
-					footer = null
+					footer = null,
+					mines = null,
 					minesLeft = o.mines;
 				
 				function init() {
 					attachSkin();
 					self.addClass("jQueryMinefield default");
 					drawMinefield();
-					$("div", minefield).bind("click", handleBlockClick);
 				}
 				
 				function drawMinefield() {
@@ -44,69 +44,183 @@
 							drawBlock(x, y);
 						}
 					}
+					$("div", minefield)
+						.bind("click", handleBlockClick)
+						.bind("contextmenu", handleBlockRightClick);
 				}
 				
 				function drawBlock(x, y) {
 					var block = $("<div></div>");
 					block
-						.html(x+", "+y)
-						.attr("id", "block_" + x + "-" + y);
+						.attr("id", "block_" + x + "-" + y)
+						.data("minestate", "hidden");
+						
 					if (y == 0) block.addClass("first");
 					minefield.append(block);
 				}
 				
 				function populateGrid(exceptionBlock) {
 					// First pass - setup mines
-					var aMines = $("div", minefield).not(exceptionBlock)
+					mines = $("div", minefield).not(exceptionBlock)
 						.sort(randOrd).sort(randOrd).sort(randOrd) // We are sorting randomly three times to get a good spread
 						.filter(":lt("+o.mines+")");
 					
-					aMines.each(function() {
+					mines.each(function() {
 						$(this)
-							.data("mine", true)
-							.addClass("mine");
+							.data("mine", true);
 					});
-					aMines.each(function() {
-						var myCoords = $(this).attr("id").replace("block_","").split("-");
-						myCoords[0] = parseInt(myCoords[0]);
-						myCoords[1] = parseInt(myCoords[1]);
-						// Now increment the mine counts for my touching blocks
-						incrementMineCount.call($(this).next());
-						incrementMineCount.call($(this).prev());
+					mines.each(function() {
+						var myCoords = getBlockCoords($(this));
 						
-						// Top and bottom
-						incrementMineCount.call(getBlockAt(myCoords[0]-1, myCoords[1]));
-						incrementMineCount.call(getBlockAt(myCoords[0]+1, myCoords[1]));
-						
-						// Cousins
-						incrementMineCount.call(getBlockAt(myCoords[0]+1, myCoords[1]+1));
-						incrementMineCount.call(getBlockAt(myCoords[0]+1, myCoords[1]-1));
-						incrementMineCount.call(getBlockAt(myCoords[0]-1, myCoords[1]-1));
-						incrementMineCount.call(getBlockAt(myCoords[0]-1, myCoords[1]+1));
-						
+						var touching = getTouchingBlocks($(this));
+						jQuery.each(touching, function(){
+							if ($(this).length) {
+								incrementMineCount.call($(this));
+							}
+						});
 					});
 				}
 				
-				function getBlockAt(x,y) {
+				function clearBlock(block, callerBlock) {
+					// Examine the blocks touching this block and clear as appropriate
+					if (isEmpty.call(block)) {
+						block.addClass("cleared").data("minestate", "cleared");
+						var touching = getTouchingBlocks(block, ":not(.cleared)");
+						jQuery.each(touching, function(){
+							if ($(this).length) {
+								if (blocksAreCousins(block, $(this)) && isEmpty.call($(this))) {
+									// Do nothing with this block - it is an empty cousin
+								} else {
+									clearBlock($(this), block);
+								}
+							}
+						});
+					} else { 
+						revealBlock(block);
+						return false;
+					}
+				}
+				
+				function revealBlock(block) {
+					if ((block.data("minecount") || 0) > 0) {
+						// The block is touching at least one mine, only reveal the block itself
+						block.addClass("revealed");
+						block.html(block.data("minecount"));
+					} else {
+						clearBlock(block);
+					}
+					return block;
+				}
+				
+				function handleBlockClick(event) {
+					var block = $(event.target);
+					
+					if (firstClick) {
+						populateGrid(block);
+						firstClick = false;
+					}
+					
+					//TODO: Check to see if the block was marked as a mine or question
+					if (block.data("minestate") != "flagged" && block.data("minestate") != "question") {
+						if (block.data("mine") == true) {
+							// Hit a mine, end the game
+							block.addClass("explosion");
+							endGame();
+						} else {
+							revealBlock(block);
+						}
+					}
+				}
+				
+				function handleBlockRightClick(event) {
+					console.log("Catching right click");
+					var block = $(event.target);
+					
+					switch(block.data("minestate")) {
+						case "hidden":
+							block.data("minestate","flagged").addClass("flagged");
+							break;
+						case "flagged":
+							block.data("minestate","question").removeClass("flagged").addClass("question");
+							break;
+						case "question":
+							block.data("minestate","hidden").removeClass("flagged");
+							break;
+					}
+					return false;		
+				}
+				
+				function endGame() {
+					mines.addClass("mine");
+					$("div", minefield)
+						.unbind("click", handleBlockClick)
+						.unbind("contextmenu", handleBlockRightClick);				
+				}
+				
+				function getTouchingBlocks(block, filter, diagonalFlag) {
+					if (diagonalFlag == null) diagonalFlag = true;
+					
+					var touching = [];
+					
+					var myCoords = getBlockCoords(block);
+					if (myCoords[0] > 0) {
+						// Not the top row, so get the above blocks
+						touching.push(getBlockAt(myCoords[0]-1, myCoords[1], filter));
+						if (diagonalFlag) {
+							if (myCoords[1] > 0) 			/* Not the left */ 	touching.push(getBlockAt(myCoords[0]-1, myCoords[1]-1, filter));
+							if (myCoords[1] < o.size[1]) 	/* Not the right */ touching.push(getBlockAt(myCoords[0]-1, myCoords[1]+1, filter));
+						}	
+					}
+					if (myCoords[0] < o.size[0]) {
+						// Not the bottom row, so get the below blocks
+						touching.push(getBlockAt(myCoords[0]+1, myCoords[1], filter));
+						if (diagonalFlag) {
+							if (myCoords[1] > 0) 			/* Not the left */ 	touching.push(getBlockAt(myCoords[0]+1, myCoords[1]-1, filter));
+							if (myCoords[1] < o.size[1]) 	/* Not the right */ touching.push(getBlockAt(myCoords[0]+1, myCoords[1]+1, filter));
+						}
+					}
+					if (myCoords[1] > 0) {
+						// Not the left, so go left
+						touching.push(getBlockAt(myCoords[0], myCoords[1]-1, filter));
+					}
+					if (myCoords[1] < o.size[1]) {
+						touching.push(getBlockAt(myCoords[0], myCoords[1]+1, filter));
+					}
+					return touching;
+				}
+				
+				function getBlockCoords(block) {
+					var c = $(block).attr("id").replace("block_","").split("-");
+					c[0] = parseInt(c[0]);
+					c[1] = parseInt(c[1]);	
+					return c;
+				}
+				
+				function getBlockAt(x,y,filter) {
+					if (filter != null)	return $("#block_"+x+"-"+y).filter(filter);
 					return $("#block_"+x+"-"+y);
+				}
+				
+				function isEmpty() {
+					if (($(this).data("minecount") || 0) == 0 || $(this).data("mine") == true) return true;
+				}
+				
+				function blocksAreCousins(a, b) {
+					var aCoords = getBlockCoords(a),
+						bCoords = getBlockCoords(b);
+						
+					if (aCoords[0] != bCoords[0] && aCoords[1] != bCoords[1]) return true;
+					return false;
 				}
 				
 				function incrementMineCount() {
 					if (this.data("mine") != true) {
 						count = this.data("minecount") || 0;
 						count++;
-						this.data("minecount",count)
-						this.html(count);
+						this.data("minecount",count);
+						// this.html(count);
 					}
 					return this;
-					
-				}
-				
-				function handleBlockClick(event) {
-					if (firstClick) {
-						populateGrid($(event.target));
-						firstClick = false;
-					}
 				}
 				
 				function randOrd(){return (Math.round(Math.random())-0.5); }

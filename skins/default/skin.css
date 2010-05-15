@@ -17,6 +17,21 @@
 .jQueryMinefield.default .minefield DIV.first {
 	clear:left;
 }
+.jQueryMinefield.default .minefield DIV.revealed {
+	background:#666;
+}
+.jQueryMinefield.default .minefield DIV.cleared {
+	background:#fff;
+}
 .jQueryMinefield.default .minefield DIV.mine {
-	background:red;
+	background:#fff url(images/MinesweeperSprite.png) no-repeat -75px 0;
+}
+.jQueryMinefield.default .minefield DIV.explosion {
+	background:#fff url(images/MinesweeperSprite.png) no-repeat -47px 0;
+}
+.jQueryMinefield.default .minefield DIV.flagged {
+	background:#fff url(images/MinesweeperSprite.png) no-repeat 3px -1px;
+}
+.jQueryMinefield.default .minefield DIV.question {
+	background:#fff url(images/MinesweeperSprite.png) no-repeat -22px -2px;
 }
