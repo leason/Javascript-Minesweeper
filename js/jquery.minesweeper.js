@@ -133,7 +133,6 @@
 				}
 				
 				function handleBlockRightClick(event) {
-					console.log("Catching right click");
 					var block = $(event.target);
 					
 					switch(block.data("minestate")) {
