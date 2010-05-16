@@ -22,8 +22,11 @@
 					minefield = null, 
 					heading = null,
 					footer = null,
+					timeDisplay = null,
 					mines = null,
-					minesLeft = o.mines,
+					flagsPlaced = 0,
+					timer = null,
+					secondsUsed = 0,
 					sounds = {
 						explosion: 	new Audio("skins/"+o.skin+"/sounds/explosion.wav"),
 						start:		new Audio("skins/"+o.skin+"/sounds/start.wav"),
@@ -36,7 +39,18 @@
 					attachSkin();
 					self.addClass("jQueryMinefield default");
 					drawHeading();
+					drawFooter();
+					updateFlagsLeft();
 					drawMinefield();
+					minefield.bind("flag-placed", function() {
+						// Check to see if the game is won
+						var uncaughtMines = 0;
+						mines.each(function(){
+							if ($(this).data("mine") && $(this).data("minestate") != "flagged") uncaughtMines++;
+						});
+						if (uncaughtMines == 0) endGame(true);
+						updateFlagsLeft();
+					});					
 				}
 				
 				function initSoundFx() {
@@ -61,12 +75,22 @@
 					
 				}
 				
+				function drawFooter() {
+					footer = $("<div class='footer'></div>");
+					timeDisplay = $("<div class='timer'>000</div>");
+					footer.append(timeDisplay).append("<div class='flagsLeft'></div>");
+					self.append(footer);
+				}
+				
 				function drawMinefield() {
 					playSound("start");
-					
+					flagsPlaced = 0;
+					resetTimer();
+					updateFlagsLeft();
+
 					if (minefield == null) {
 						minefield = $("<div class='minefield'></div>");
-						self.append(minefield);
+						heading.after(minefield);
 					} else {
 						minefield.empty();
 						firstClick = true;
@@ -112,6 +136,8 @@
 							}
 						});
 					});
+					
+					startTimer();
 				}
 				
 				function clearBlock(block, callerBlock, clearedBlocks) {
@@ -181,30 +207,35 @@
 				
 				function handleBlockRightClick(event) {
 					var block = $(event.target);
+
+					if (firstClick) {
+						populateGrid(block);
+						firstClick = false;
+					}
 					
 					if (block.data("minestate") != "revealed") {
 						switch(block.data("minestate")) {
 							case "hidden":
-								block.data("minestate","flagged").addClass("flagged");
-								// Check to see if the game is won
-								var uncaughtMines = 0;
-								mines.each(function(){
-									if ($(this).data("mine") && $(this).data("minestate") != "flagged") uncaughtMines++;
-								});
-								if (uncaughtMines == 0) endGame(true);
+								if (flagsPlaced < o.mines) {
+									block.data("minestate","flagged").addClass("flagged");
+									flagsPlaced++;
+								}
 								break;
 							case "flagged":
+								flagsPlaced--;
 								block.data("minestate","question").removeClass("flagged").addClass("question");
 								break;
 							case "question":
 								block.data("minestate","hidden").removeClass("question");
 								break;
 						}
+						minefield.trigger("flag-placed");
 					}
 					return false;		
 				}
 				
 				function endGame(win) {
+					endTimer();
 					if (win == null) win = false;
 					
 					if (win) {
@@ -218,12 +249,38 @@
 					mines.addClass("mine");
 					$("div", minefield)
 						.unbind("click", handleBlockClick)
-						.unbind("contextmenu", handleBlockRightClick);				
+						.unbind("contextmenu", handleBlockRightClick);	
+						
 				}
 								
 				function restartGame() {
 					$(".restart", heading).removeClass("gameover gamewon");
 					drawMinefield();
+				}
+				
+				function startTimer() {
+					secondsUsed = 0;
+					timer = setInterval(updateTimer,1000);
+				}
+				
+				function updateTimer() {
+					secondsUsed++;
+					timeDisplay.html(pad(secondsUsed,3));
+				}
+				
+				function endTimer() {
+					clearTimeout(timer);
+					timer = null;
+				}
+				
+				function resetTimer() {
+					endTimer();
+					secondsUsed = -1;
+					updateTimer();
+				}
+				
+				function updateFlagsLeft() {
+					$(".flagsLeft",footer).html( (o.mines - flagsPlaced) + " flags left");
 				}
 				
 				function getTouchingBlocks(block, filter, diagonalFlag) {
@@ -297,6 +354,14 @@
 					sounds[sound].play();
 				}
 				
+				function pad(number, length) {
+					var str = '' + number;
+					while (str.length < length) {
+						str = '0' + str;
+					}
+					return str;
+				}
+
 				function randOrd(){return (Math.round(Math.random())-0.5); }
 				
 				function attachSkin() {
