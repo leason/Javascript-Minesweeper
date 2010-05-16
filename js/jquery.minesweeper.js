@@ -23,15 +23,45 @@
 					heading = null,
 					footer = null,
 					mines = null,
-					minesLeft = o.mines;
+					minesLeft = o.mines,
+					sounds = {
+						explosion: 	new Audio("skins/"+o.skin+"/sounds/explosion.wav"),
+						start:		new Audio("skins/"+o.skin+"/sounds/start.wav")
+					};
 				
 				function init() {
+					initSoundFx();
 					attachSkin();
 					self.addClass("jQueryMinefield default");
+					drawHeading();
 					drawMinefield();
 				}
 				
+				function initSoundFx() {
+					for (var s in sounds) {
+						sounds[s].load();
+					}
+				}
+				
+				function drawHeading() {
+					var restartButton = $("<div class='restart'></div>");
+					restartButton.click(restartGame);
+					heading = $("<div class='heading'></div>");
+					heading.append(restartButton);
+					self.prepend(heading);
+					self
+						.bind("mousedown", function(){
+							restartButton.addClass("thinking");
+						})
+						.bind("mouseup", function(){
+							restartButton.removeClass("thinking");
+						});
+					
+				}
+				
 				function drawMinefield() {
+					playSound("start");
+					
 					if (minefield == null) {
 						minefield = $("<div class='minefield'></div>");
 						self.append(minefield);
@@ -44,6 +74,7 @@
 							drawBlock(x, y);
 						}
 					}
+					
 					$("div", minefield)
 						.bind("click", handleBlockClick)
 						.bind("contextmenu", handleBlockRightClick);
@@ -150,10 +181,19 @@
 				}
 				
 				function endGame() {
+					playSound("explosion");
+					
+					$(".restart", heading).addClass("gameover");
+					
 					mines.addClass("mine");
 					$("div", minefield)
 						.unbind("click", handleBlockClick)
 						.unbind("contextmenu", handleBlockRightClick);				
+				}
+				
+				function restartGame() {
+					$(".restart", heading).removeClass("gameover");
+					drawMinefield();
 				}
 				
 				function getTouchingBlocks(block, filter, diagonalFlag) {
@@ -220,6 +260,10 @@
 						// this.html(count);
 					}
 					return this;
+				}
+				
+				function playSound(sound) {
+					sounds[sound].play();
 				}
 				
 				function randOrd(){return (Math.round(Math.random())-0.5); }
