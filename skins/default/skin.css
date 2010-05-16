@@ -5,9 +5,13 @@
 /* This is the minefield container */
 .jQueryMinefield.default .minefield {
 	float:left;
+	padding:0 0 1px 1px;
 	-moz-box-shadow: 0px 0px 15px #415fa7; /* FF3.5+ */
 	-webkit-box-shadow: 0px 0px 15px #415fa7; /* Saf3.0+, Chrome */
 	box-shadow: 0px 0px 15px #415fa7; /* Opera 10.5, IE 9.0 */
+    -moz-border-radius: 3px; /* FF1+ */
+	-webkit-border-radius: 3px; /* Saf3+, Chrome */
+    border-radius: 3px; /* Opera 10.5, IE 9 */	
 }
 
 .jQueryMinefield.default .heading {
@@ -32,16 +36,24 @@
 .jQueryMinefield.default .heading .restart.gameover {
 	background:url(images/MinesweeperSprite.png) no-repeat -96px -31px;	
 }
+.jQueryMinefield.default .heading .restart.gamewon {
+	background:url(images/MinesweeperSprite.png) no-repeat -144px -31px;	
+}
 
 /* This is a mine/block in the minefield */
 .jQueryMinefield.default .minefield DIV {
 	width: 23px;
 	height: 23px;
+	margin: 1px 1px 0 0;
 	padding:1px;
-	border: 1px solid black;
 	background: #415fa7;
 	float:left;
-	font-size:12px;
+	font-size:18px;
+	line-height:24px;
+	text-align:center;
+    -moz-border-radius: 3px; /* FF1+ */
+	-webkit-border-radius: 3px; /* Saf3+, Chrome */
+    border-radius: 3px; /* Opera 10.5, IE 9 */	
 }
 .jQueryMinefield.default .minefield DIV.first {
 	clear:left;

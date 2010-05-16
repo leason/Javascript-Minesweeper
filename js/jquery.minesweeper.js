@@ -26,7 +26,9 @@
 					minesLeft = o.mines,
 					sounds = {
 						explosion: 	new Audio("skins/"+o.skin+"/sounds/explosion.wav"),
-						start:		new Audio("skins/"+o.skin+"/sounds/start.wav")
+						start:		new Audio("skins/"+o.skin+"/sounds/start.wav"),
+						click:		new Audio("skins/"+o.skin+"/sounds/click.wav"),
+						win:		new Audio("skins/"+o.skin+"/sounds/win.wav")
 					};
 				
 				function init() {
@@ -112,31 +114,44 @@
 					});
 				}
 				
-				function clearBlock(block, callerBlock) {
-					// Examine the blocks touching this block and clear as appropriate
-					if (isEmpty.call(block)) {
-						block.addClass("cleared").data("minestate", "cleared");
-						var touching = getTouchingBlocks(block, ":not(.cleared)");
-						jQuery.each(touching, function(){
-							if ($(this).length) {
-								if (blocksAreCousins(block, $(this)) && isEmpty.call($(this))) {
-									// Do nothing with this block - it is an empty cousin
-								} else {
-									clearBlock($(this), block);
+				function clearBlock(block, callerBlock, clearedBlocks) {
+					if (clearedBlocks == null) clearedBlocks = {};
+					
+					if (clearedBlocks[block.attr("id")]) {
+						// do nothing - this block has already been looked at in this recursion
+					} else {
+						// Examine the blocks touching this block and clear as appropriate
+						if (isEmpty.call(block)) {
+							block
+								.addClass("cleared")
+								.data("minestate", "cleared");
+							
+							clearedBlocks[block.attr("id")] = true;
+							
+							var touching = getTouchingBlocks(block, ":not(.revealed,.cleared)");
+							jQuery.each(touching, function(){
+								if ($(this).length) {
+									if (blocksAreCousins(block, $(this)) && isEmpty.call($(this))) {
+										// Do nothing with this block - it is an empty cousin
+									} else {
+										clearBlock($(this), block, clearedBlocks);
+									}
 								}
-							}
-						});
-					} else { 
-						revealBlock(block);
-						return false;
+							});
+						} else { 
+							revealBlock(block);
+							return false;
+						}
 					}
 				}
 				
 				function revealBlock(block) {
 					if ((block.data("minecount") || 0) > 0) {
 						// The block is touching at least one mine, only reveal the block itself
-						block.addClass("revealed");
-						block.html(block.data("minecount"));
+						block
+							.addClass("revealed")
+							.data("minestate", "revealed")
+							.html(block.data("minecount"));
 					} else {
 						clearBlock(block);
 					}
@@ -151,8 +166,9 @@
 						firstClick = false;
 					}
 					
-					//TODO: Check to see if the block was marked as a mine or question
-					if (block.data("minestate") != "flagged" && block.data("minestate") != "question") {
+					var state = block.data("minestate");
+					if (jQuery.inArray(state, ["cleared", "flagged", "question", "revealed"]) == -1) {
+						playSound("click");
 						if (block.data("mine") == true) {
 							// Hit a mine, end the game
 							block.addClass("explosion");
@@ -166,33 +182,47 @@
 				function handleBlockRightClick(event) {
 					var block = $(event.target);
 					
-					switch(block.data("minestate")) {
-						case "hidden":
-							block.data("minestate","flagged").addClass("flagged");
-							break;
-						case "flagged":
-							block.data("minestate","question").removeClass("flagged").addClass("question");
-							break;
-						case "question":
-							block.data("minestate","hidden").removeClass("flagged");
-							break;
+					if (block.data("minestate") != "revealed") {
+						switch(block.data("minestate")) {
+							case "hidden":
+								block.data("minestate","flagged").addClass("flagged");
+								// Check to see if the game is won
+								var uncaughtMines = 0;
+								mines.each(function(){
+									if ($(this).data("mine") && $(this).data("minestate") != "flagged") uncaughtMines++;
+								});
+								if (uncaughtMines == 0) endGame(true);
+								break;
+							case "flagged":
+								block.data("minestate","question").removeClass("flagged").addClass("question");
+								break;
+							case "question":
+								block.data("minestate","hidden").removeClass("question");
+								break;
+						}
 					}
 					return false;		
 				}
 				
-				function endGame() {
-					playSound("explosion");
+				function endGame(win) {
+					if (win == null) win = false;
 					
-					$(".restart", heading).addClass("gameover");
+					if (win) {
+						playSound("win");
+						$(".restart", heading).addClass("gamewon");					
+					} else {
+						playSound("explosion");
+						$(".restart", heading).addClass("gameover");
+					}
 					
 					mines.addClass("mine");
 					$("div", minefield)
 						.unbind("click", handleBlockClick)
 						.unbind("contextmenu", handleBlockRightClick);				
 				}
-				
+								
 				function restartGame() {
-					$(".restart", heading).removeClass("gameover");
+					$(".restart", heading).removeClass("gameover gamewon");
 					drawMinefield();
 				}
 				
@@ -263,6 +293,7 @@
 				}
 				
 				function playSound(sound) {
+					sounds[sound].load();
 					sounds[sound].play();
 				}
 				
